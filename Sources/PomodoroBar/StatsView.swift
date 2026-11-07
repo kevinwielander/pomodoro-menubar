@@ -4,9 +4,14 @@ import SwiftUI
 
 struct StatsView: View {
     @EnvironmentObject private var controller: TimerController
-    @State private var range = Range.week
+    @State private var range: Range
     @State private var hoveredDay: Date?
     let done: () -> Void
+
+    init(range: Range = .week, done: @escaping () -> Void) {
+        _range = State(initialValue: range)
+        self.done = done
+    }
 
     enum Range: Int, CaseIterable {
         case today = 1, week = 7, month = 30

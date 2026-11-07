@@ -51,12 +51,31 @@ final class TimerController: ObservableObject {
     var progress: Double { engine.progress(at: now, durations: durations) }
     var stats: Stats { Stats(records: history) }
 
-    init() {
-        engine = Self.load(TimerEngine.self, forKey: Keys.engine) ?? TimerEngine()
-        settings = Self.load(Settings.self, forKey: Keys.settings) ?? Settings()
-        parkedThoughts = defaults.stringArray(forKey: Keys.parked) ?? []
-        nextStep = defaults.string(forKey: Keys.nextStep) ?? ""
-        history = historyStore.load()
+    /// A controller with fixed state that never ticks, saves or touches the
+    /// system; used to render screenshots.
+    init(engine: TimerEngine, settings: Settings, history: [BlockRecord], parkedThoughts: [String],
+         nextStep: String, now: Date, breakTip: String, missingFocusShortcuts: [String]? = nil) {
+        self.engine = engine
+        self.settings = settings
+        self.history = history
+        self.parkedThoughts = parkedThoughts
+        self.nextStep = nextStep
+        self.now = now
+        self.breakTip = breakTip
+        self.missingFocusShortcuts = missingFocusShortcuts
+    }
+
+    convenience init() {
+        let defaults = UserDefaults.standard
+        self.init(
+            engine: Self.load(TimerEngine.self, forKey: Keys.engine) ?? TimerEngine(),
+            settings: Self.load(Settings.self, forKey: Keys.settings) ?? Settings(),
+            history: HistoryStore().load(),
+            parkedThoughts: defaults.stringArray(forKey: Keys.parked) ?? [],
+            nextStep: defaults.string(forKey: Keys.nextStep) ?? "",
+            now: Date(),
+            breakTip: BreakTips.random()
+        )
 
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }

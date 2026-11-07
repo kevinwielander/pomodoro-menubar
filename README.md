@@ -1,6 +1,43 @@
 # PomodoroBar
 
 A minimal, native Pomodoro timer for the macOS menu bar. Its defaults come from research on breaks and interruptions;
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/menubar-dark.png">
+    <img src="docs/screenshots/menubar-light.png" width="190" alt="Menu bar item during focus, during a break, and idle">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/timer-dark.png">
+    <img src="docs/screenshots/timer-light.png" width="280" alt="Focus block in progress">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/stats-week-dark.png">
+    <img src="docs/screenshots/stats-week-light.png" width="280" alt="Stats for the last 7 days">
+  </picture>
+</p>
+
+<details>
+<summary>More screenshots</summary>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/break-dark.png">
+    <img src="docs/screenshots/break-light.png" width="280" alt="Short break with parked thoughts">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/stats-today-dark.png">
+    <img src="docs/screenshots/stats-today-light.png" width="280" alt="Today's blocks, including skipped ones">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png">
+    <img src="docs/screenshots/settings-light.png" width="280" alt="Settings">
+  </picture>
+</p>
+</details>
+
 - Lives only in the menu bar (no Dock icon), with a progress ring and minutes left
 - 25/5 and 50/10 presets plus custom durations; long break after N rounds
 - Breaks start automatically; a focus block can be extended by 5 min once
@@ -44,6 +81,7 @@ Settings live in `UserDefaults` (`com.kevinwielander.PomodoroBar`). Block histor
 ```sh
 swift test                                   # timer engine tests
 swift run                                    # run unbundled (no notifications)
+swift run PomodoroBar --screenshots docs/screenshots   # re-render README screenshots
 scripts/bundle.sh                            # build/PomodoroBar.app
 open --env POMODOROBAR_FAST=1 build/PomodoroBar.app   # minutes become seconds
 ```

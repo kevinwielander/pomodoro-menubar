@@ -32,7 +32,11 @@ enum Screen {
 
 struct PopoverView: View {
     @EnvironmentObject private var controller: TimerController
-    @State private var screen = Screen.timer
+    @State private var screen: Screen
+
+    init(screen: Screen = .timer) {
+        _screen = State(initialValue: screen)
+    }
 
     var body: some View {
         Group {
