@@ -12,6 +12,10 @@ public enum Preset: String, CaseIterable, Sendable {
     }
 }
 
+public enum MenuBarDisplay: String, Codable, CaseIterable, Sendable {
+    case ringAndTime, ring, time
+}
+
 public struct Settings: Codable, Equatable, Sendable {
     public var focusMinutes = 25
     public var shortBreakMinutes = 5
@@ -19,10 +23,27 @@ public struct Settings: Codable, Equatable, Sendable {
     public var roundsBeforeLongBreak = 4
     public var autoStartFocus = false
     public var soundEnabled = true
-    public var iconOnly = false
+    public var menuBarDisplay = MenuBarDisplay.ringAndTime
     public var hotkeyEnabled = true
+    public var focusModeEnabled = false
 
     public init() {}
+
+    /// Missing keys fall back to defaults, so adding a setting never wipes
+    /// the user's saved ones.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Settings()
+        focusMinutes = try c.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? d.focusMinutes
+        shortBreakMinutes = try c.decodeIfPresent(Int.self, forKey: .shortBreakMinutes) ?? d.shortBreakMinutes
+        longBreakMinutes = try c.decodeIfPresent(Int.self, forKey: .longBreakMinutes) ?? d.longBreakMinutes
+        roundsBeforeLongBreak = try c.decodeIfPresent(Int.self, forKey: .roundsBeforeLongBreak) ?? d.roundsBeforeLongBreak
+        autoStartFocus = try c.decodeIfPresent(Bool.self, forKey: .autoStartFocus) ?? d.autoStartFocus
+        soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? d.soundEnabled
+        menuBarDisplay = (try? c.decodeIfPresent(MenuBarDisplay.self, forKey: .menuBarDisplay)) ?? d.menuBarDisplay
+        hotkeyEnabled = try c.decodeIfPresent(Bool.self, forKey: .hotkeyEnabled) ?? d.hotkeyEnabled
+        focusModeEnabled = try c.decodeIfPresent(Bool.self, forKey: .focusModeEnabled) ?? d.focusModeEnabled
+    }
 
     /// Derived from the durations so it can never disagree with them.
     public var preset: Preset {

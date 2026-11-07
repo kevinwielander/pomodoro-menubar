@@ -7,44 +7,70 @@ struct MenuBarLabel: View {
 
     var body: some View {
         let engine = controller.engine
+        let display = controller.settings.menuBarDisplay
         HStack(spacing: 3) {
-            Image(systemName: icon(for: engine))
+            if engine.status == .idle {
+                Image(systemName: "timer")
+            } else if display != .time {
+                Image(nsImage: MenuBarIcon.ring(
+                    progress: controller.progress, phase: engine.phase, paused: engine.isPaused))
+            } else if engine.isPaused {
+                Image(systemName: "pause.circle")
+            }
             // Minutes only: a ticking seconds display invites clock-watching.
-            if !controller.settings.iconOnly, engine.status != .idle {
+            if engine.status != .idle, display != .ring {
                 Text("\(Int((controller.remaining / 60).rounded(.up)))m")
                     .monospacedDigit()
             }
         }
     }
+}
 
-    private func icon(for engine: TimerEngine) -> String {
-        if engine.isPaused { return "pause.circle" }
-        if engine.phase.isBreak { return "cup.and.saucer.fill" }
-        return engine.isRunning ? "timer" : "timer.circle"
-    }
+enum Screen {
+    case timer, stats, settings
 }
 
 struct PopoverView: View {
     @EnvironmentObject private var controller: TimerController
-    @State private var showingSettings = false
+    @State private var screen = Screen.timer
 
     var body: some View {
         Group {
-            if showingSettings {
-                SettingsView { showingSettings = false }
-            } else {
-                TimerView { showingSettings = true }
+            switch screen {
+            case .timer: TimerView(screen: $screen)
+            case .stats: StatsView { screen = .timer }
+            case .settings: SettingsView { screen = .timer }
             }
         }
         .padding(16)
-        .frame(width: 300)
+        .frame(width: 320)
+    }
+}
+
+/// Formats a duration as "1h 05m" or "25m".
+func formatDuration(_ interval: TimeInterval) -> String {
+    let minutes = Int((interval / 60).rounded())
+    return minutes >= 60 ? String(format: "%dh %02dm", minutes / 60, minutes % 60) : "\(minutes)m"
+}
+
+struct BackHeader: View {
+    let title: String
+    let back: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: back) { Image(systemName: "chevron.left") }
+                .buttonStyle(.borderless)
+            Text(title).font(.headline)
+            Spacer()
+        }
     }
 }
 
 private struct TimerView: View {
     @EnvironmentObject private var controller: TimerController
     @State private var draftThought = ""
-    let openSettings: () -> Void
+    @Binding var screen: Screen
 
     private var engine: TimerEngine { controller.engine }
     private var isFocusing: Bool { engine.phase == .focus && engine.isRunning }
@@ -52,9 +78,13 @@ private struct TimerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            Text(Self.format(controller.remaining))
-                .font(.system(size: 48, weight: .light, design: .rounded).monospacedDigit())
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 6) {
+                Text(Self.format(controller.remaining))
+                    .font(.system(size: 48, weight: .light, design: .rounded).monospacedDigit())
+                ProgressView(value: controller.progress)
+                    .tint(engine.phase.isBreak ? .green : .accentColor)
+            }
+            .frame(maxWidth: .infinity)
             controls
             if engine.phase.isBreak {
                 Label(controller.breakTip, systemImage: "figure.walk")
@@ -71,6 +101,11 @@ private struct TimerView: View {
     private var header: some View {
         HStack {
             Text(title).font(.headline)
+            if controller.settings.focusModeEnabled, isFocusing {
+                Image(systemName: "moon.fill")
+                    .foregroundStyle(.secondary)
+                    .help("Focus mode is on")
+            }
             Spacer()
             if engine.phase == .focus {
                 Text("Round \(engine.completedRounds + 1) of \(controller.settings.roundsBeforeLongBreak)")
@@ -101,7 +136,7 @@ private struct TimerView: View {
             }
             Spacer()
             Button { controller.skip() } label: { Image(systemName: "forward.end") }
-                .help(engine.phase.isBreak ? "Skip break" : "Skip to break")
+                .help(engine.phase.isBreak ? "Skip break" : "Skip to break (logged as a partial block)")
             Button { controller.reset() } label: { Image(systemName: "arrow.counterclockwise") }
                 .help("Reset")
         }
@@ -155,12 +190,19 @@ private struct TimerView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Label("Today: \(controller.todayCount)", systemImage: "checkmark.seal")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        let stats = controller.stats
+        let today = stats.summary(in: stats.interval(days: 1, endingAt: controller.now))
+        return HStack {
+            Button { screen = .stats } label: {
+                Label("Today: \(today.completedFocus) · \(formatDuration(today.focusTime))",
+                      systemImage: "chart.bar.fill")
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .help("Stats")
             Spacer()
-            Button(action: openSettings) { Image(systemName: "gearshape") }
+            Button { screen = .settings } label: { Image(systemName: "gearshape") }
                 .buttonStyle(.borderless)
                 .help("Settings")
             Button("Quit") { NSApp.terminate(nil) }
@@ -180,12 +222,23 @@ private struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Button(action: done) { Image(systemName: "chevron.left") }
-                    .buttonStyle(.borderless)
-                Text("Settings").font(.headline)
+            BackHeader(title: "Settings", back: done)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    durations
+                    Divider()
+                    focusMode
+                    Divider()
+                    general
+                }
+                .padding(.trailing, 8)
             }
+            .frame(maxHeight: 480)
+        }
+    }
 
+    private var durations: some View {
+        VStack(alignment: .leading, spacing: 10) {
             Picker("Preset", selection: preset) {
                 Text("25 / 5").tag(Preset.classic)
                 Text("50 / 10").tag(Preset.deep)
@@ -205,12 +258,38 @@ private struct SettingsView: View {
             Text("Duration changes apply from the next block.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
 
-            Divider()
+    private var focusMode: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Turn on Focus during focus blocks", isOn: $controller.settings.focusModeEnabled)
+            if controller.settings.focusModeEnabled {
+                if let missing = controller.missingFocusShortcuts, !missing.isEmpty {
+                    FocusSetupInstructions(missing: missing) { controller.checkFocusShortcuts() }
+                } else if controller.missingFocusShortcuts == nil {
+                    Text("Checking shortcuts…").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Label("Shortcuts ready", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let error = controller.focusModeError {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+            }
+        }
+    }
 
+    private var general: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Menu bar", selection: $controller.settings.menuBarDisplay) {
+                Text("Ring + time").tag(MenuBarDisplay.ringAndTime)
+                Text("Ring").tag(MenuBarDisplay.ring)
+                Text("Time").tag(MenuBarDisplay.time)
+            }
             Toggle("Start focus automatically after breaks", isOn: $controller.settings.autoStartFocus)
             Toggle("Play chime", isOn: $controller.settings.soundEnabled)
-            Toggle("Icon only in menu bar", isOn: $controller.settings.iconOnly)
             Toggle("Shortcut ⌥⌘P to start/pause", isOn: $controller.settings.hotkeyEnabled)
             Toggle("Launch at login", isOn: Binding(
                 get: { controller.launchAtLogin },
@@ -227,5 +306,30 @@ private struct SettingsView: View {
             get: { controller.settings.preset },
             set: { controller.settings.apply($0) }
         )
+    }
+}
+
+private struct FocusSetupInstructions: View {
+    let missing: [String]
+    let checkAgain: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("One-time setup: create these shortcuts in the Shortcuts app.")
+            if missing.contains(FocusModeShortcuts.onName) {
+                Text("• **\(FocusModeShortcuts.onName)**: add the action *Set Focus*, choose Do Not Disturb, *Turn On* until *Turned Off*.")
+            }
+            if missing.contains(FocusModeShortcuts.offName) {
+                Text("• **\(FocusModeShortcuts.offName)**: add the action *Set Focus*, choose Do Not Disturb, *Turn Off*.")
+            }
+            HStack {
+                Button("Open Shortcuts") {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Shortcuts.app"))
+                }
+                Button("Check again", action: checkAgain)
+            }
+        }
+        .font(.caption)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

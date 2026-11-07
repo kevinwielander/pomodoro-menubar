@@ -37,8 +37,14 @@ public enum Status: Codable, Equatable, Sendable {
 }
 
 public enum TimerEvent: Equatable, Sendable {
-    case focusCompleted(next: Phase)
-    case breakCompleted(focusStarted: Bool)
+    case focusCompleted(BlockRecord, next: Phase)
+    case breakCompleted(BlockRecord, focusStarted: Bool)
+
+    public var record: BlockRecord {
+        switch self {
+        case .focusCompleted(let record, _), .breakCompleted(let record, _): record
+        }
+    }
 }
 
 /// Pure Pomodoro state machine. All time-dependent operations take `now`
@@ -53,6 +59,9 @@ public struct TimerEngine: Codable, Equatable, Sendable {
     /// Each focus block may be extended once, so flow is allowed without
     /// drifting into self-regulated breaks.
     public private(set) var hasExtended = false
+    /// Planned length of the current block including any extension; 0 when idle.
+    public private(set) var blockLength: TimeInterval = 0
+    public private(set) var blockStartedAt: Date?
 
     public init() {}
 
@@ -76,11 +85,22 @@ public struct TimerEngine: Codable, Equatable, Sendable {
         }
     }
 
+    /// Fraction of the current block that has elapsed, from 0 to 1.
+    public func progress(at now: Date, durations: Durations) -> Double {
+        guard status != .idle, blockLength > 0 else { return 0 }
+        return min(1, max(0, 1 - remaining(at: now, durations: durations) / blockLength))
+    }
+
     public mutating func start(at now: Date, durations: Durations) {
         switch status {
-        case .idle: status = .running(endDate: now + durations.duration(of: phase))
-        case .paused(let remaining): status = .running(endDate: now + remaining)
-        case .running: break
+        case .idle:
+            blockLength = durations.duration(of: phase)
+            blockStartedAt = now
+            status = .running(endDate: now + blockLength)
+        case .paused(let remaining):
+            status = .running(endDate: now + remaining)
+        case .running:
+            break
         }
     }
 
@@ -97,8 +117,12 @@ public struct TimerEngine: Codable, Equatable, Sendable {
         }
     }
 
-    public mutating func reset() {
+    /// Returns to the initial state. A block in progress is recorded as reset.
+    @discardableResult
+    public mutating func reset(at now: Date, durations: Durations) -> BlockRecord? {
+        let record = record(.reset, at: now, durations: durations)
         self = TimerEngine()
+        return record
     }
 
     public mutating func extend(at now: Date) {
@@ -108,18 +132,25 @@ public struct TimerEngine: Codable, Equatable, Sendable {
         case .paused(let remaining): status = .paused(remaining: remaining + Self.extensionLength)
         case .idle: return
         }
+        blockLength += Self.extensionLength
         hasExtended = true
     }
 
-    /// Skips the current block without counting it as completed. Skipping a
-    /// break means the user wants to work, so focus starts immediately.
-    public mutating func skip(at now: Date, durations: Durations) {
+    /// Skips the current block without counting it as completed; only the time
+    /// actually spent is recorded. Skipping a break means the user wants to
+    /// work, so focus starts immediately.
+    @discardableResult
+    public mutating func skip(at now: Date, durations: Durations) -> BlockRecord? {
+        let record = record(.skipped, at: now, durations: durations)
         begin(phase == .focus ? .shortBreak : .focus, at: now, durations: durations, running: true)
+        return record
     }
 
     /// Advances the machine if the running block has ended.
     public mutating func tick(at now: Date, durations: Durations, autoStartFocus: Bool) -> TimerEvent? {
-        guard case .running(let endDate) = status, now >= endDate else { return nil }
+        guard case .running(let endDate) = status, now >= endDate,
+              let record = record(.completed, at: endDate, durations: durations)
+        else { return nil }
 
         if phase == .focus {
             completedRounds += 1
@@ -127,16 +158,35 @@ public struct TimerEngine: Codable, Equatable, Sendable {
             if next == .longBreak { completedRounds = 0 }
             // Breaks always start on their own: systematic breaks are the point.
             begin(next, at: now, durations: durations, running: true)
-            return .focusCompleted(next: next)
+            return .focusCompleted(record, next: next)
         } else {
             begin(.focus, at: now, durations: durations, running: autoStartFocus)
-            return .breakCompleted(focusStarted: autoStartFocus)
+            return .breakCompleted(record, focusStarted: autoStartFocus)
         }
     }
 
     private mutating func begin(_ phase: Phase, at now: Date, durations: Durations, running: Bool) {
         self.phase = phase
         hasExtended = false
-        status = running ? .running(endDate: now + durations.duration(of: phase)) : .idle
+        if running {
+            blockLength = durations.duration(of: phase)
+            blockStartedAt = now
+            status = .running(endDate: now + blockLength)
+        } else {
+            blockLength = 0
+            blockStartedAt = nil
+            status = .idle
+        }
+    }
+
+    private func record(_ outcome: Outcome, at now: Date, durations: Durations) -> BlockRecord? {
+        guard status != .idle else { return nil }
+        let actual = outcome == .completed ? blockLength : blockLength - remaining(at: now, durations: durations)
+        // A block abandoned within a second never really started.
+        guard outcome == .completed || actual >= 1 else { return nil }
+        return BlockRecord(
+            phase: phase, startedAt: blockStartedAt ?? now - actual, endedAt: now,
+            planned: blockLength, actual: actual, outcome: outcome
+        )
     }
 }
