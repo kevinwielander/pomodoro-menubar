@@ -1,7 +1,6 @@
 # PomodoroBar
 
-A minimal, native Pomodoro timer for the macOS menu bar. Its defaults come from research on breaks and interruptions; see [PLAN.md](PLAN.md) for the reasoning and sources.
-
+A minimal, native Pomodoro timer for the macOS menu bar. Its defaults come from research on breaks and interruptions;
 - Lives only in the menu bar (no Dock icon), showing minutes left
 - 25/5 and 50/10 presets plus custom durations; long break after N rounds
 - Breaks start automatically; a focus block can be extended by 5 min once
