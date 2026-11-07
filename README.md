@@ -40,7 +40,7 @@ A minimal, native Pomodoro timer for the macOS menu bar. Its defaults come from 
 
 - Lives only in the menu bar (no Dock icon), with a progress ring and minutes left
 - 25/5 and 50/10 presets plus custom durations; long break after N rounds
-- Breaks start automatically; a focus block can be extended by 5 min once
+- Breaks start automatically; a focus block can be extended in 5 min steps
 - No notifications during focus, one notification and chime when a block ends
 - **Honest stats**: a skipped or reset block counts only the time you actually spent, and is shown as partial. Includes today/7/30-day views, a daily chart, streak, and CSV export.
 - **macOS Focus** (Do Not Disturb) turns on during focus blocks and off for breaks (setup below)

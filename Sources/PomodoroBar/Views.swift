@@ -136,7 +136,7 @@ private struct TimerView: View {
             .keyboardShortcut(.defaultAction)
             if engine.canExtend {
                 Button("+5 min") { controller.extend() }
-                    .help("Extend this focus block once")
+                    .help("Add 5 minutes to this focus block")
             }
             Spacer()
             Button { controller.skip() } label: { Image(systemName: "forward.end") }

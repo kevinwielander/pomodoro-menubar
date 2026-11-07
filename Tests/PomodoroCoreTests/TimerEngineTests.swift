@@ -109,15 +109,15 @@ final class TimerEngineTests: XCTestCase {
         XCTAssertEqual(engine.phase, .focus)
     }
 
-    func testExtendAddsFiveMinutesOnlyOnce() {
+    func testExtendAddsFiveMinutesEachTime() {
         var engine = TimerEngine()
         XCTAssertFalse(engine.canExtend)
         engine.start(at: t0, durations: durations)
         engine.extend(at: t0)
         XCTAssertEqual(engine.remaining(at: t0, durations: durations), 1800)
-        XCTAssertFalse(engine.canExtend)
+        XCTAssertTrue(engine.canExtend)
         engine.extend(at: t0)
-        XCTAssertEqual(engine.remaining(at: t0, durations: durations), 1800)
+        XCTAssertEqual(engine.remaining(at: t0, durations: durations), 2100)
     }
 
     func testExtendedBlockRecordsExtendedLength() throws {
@@ -144,14 +144,6 @@ final class TimerEngineTests: XCTestCase {
         XCTAssertFalse(engine.canExtend)
     }
 
-    func testExtensionResetsForNextFocusBlock() {
-        var engine = TimerEngine()
-        engine.start(at: t0, durations: durations)
-        engine.extend(at: t0)
-        _ = engine.tick(at: t0 + 1800, durations: durations, autoStartFocus: true)
-        _ = engine.tick(at: t0 + 2100, durations: durations, autoStartFocus: true)
-        XCTAssertTrue(engine.canExtend)
-    }
 
     func testSkipFocusRecordsOnlyTimeSpent() throws {
         var engine = TimerEngine()

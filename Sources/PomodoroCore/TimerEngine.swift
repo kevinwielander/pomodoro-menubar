@@ -56,9 +56,6 @@ public struct TimerEngine: Codable, Equatable, Sendable {
     public private(set) var status: Status = .idle
     /// Focus blocks completed since the last long break.
     public private(set) var completedRounds = 0
-    /// Each focus block may be extended once, so flow is allowed without
-    /// drifting into self-regulated breaks.
-    public private(set) var hasExtended = false
     /// Planned length of the current block including any extension; 0 when idle.
     public private(set) var blockLength: TimeInterval = 0
     public private(set) var blockStartedAt: Date?
@@ -74,7 +71,7 @@ public struct TimerEngine: Codable, Equatable, Sendable {
     }
 
     public var canExtend: Bool {
-        phase == .focus && !hasExtended && status != .idle
+        phase == .focus && status != .idle
     }
 
     public func remaining(at now: Date, durations: Durations) -> TimeInterval {
@@ -133,7 +130,6 @@ public struct TimerEngine: Codable, Equatable, Sendable {
         case .idle: return
         }
         blockLength += Self.extensionLength
-        hasExtended = true
     }
 
     /// Skips the current block without counting it as completed; only the time
@@ -167,7 +163,6 @@ public struct TimerEngine: Codable, Equatable, Sendable {
 
     private mutating func begin(_ phase: Phase, at now: Date, durations: Durations, running: Bool) {
         self.phase = phase
-        hasExtended = false
         if running {
             blockLength = durations.duration(of: phase)
             blockStartedAt = now
