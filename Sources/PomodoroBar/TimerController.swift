@@ -176,11 +176,8 @@ final class TimerController: ObservableObject {
         let wanted = settings.focusModeEnabled && engine.phase == .focus && engine.isRunning
         guard wanted != focusModeActive else { return }
         focusModeActive = wanted
-        FocusModeShortcuts.set(enabled: wanted) { success in
-            Task { @MainActor [weak self] in
-                let name = wanted ? FocusModeShortcuts.onName : FocusModeShortcuts.offName
-                self?.focusModeError = success ? nil : "Couldn't run the shortcut “\(name)”."
-            }
+        FocusModeShortcuts.set(enabled: wanted) { error in
+            Task { @MainActor [weak self] in self?.focusModeError = error }
         }
     }
 
