@@ -78,17 +78,15 @@ Design guesses with no research behind them:
 ### Layout
 
 ```
-Sources/PomodoroBar/
-  PomodoroBarApp.swift     // @main, MenuBarExtra
-  TimerEngine.swift        // pure state machine
-  TimerController.swift    // ObservableObject: ticking, persistence, notifications
-  Settings.swift           // durations, presets, toggles
-  Views/PopoverView.swift
-  Views/SettingsView.swift
-Tests/PomodoroBarTests/
-  TimerEngineTests.swift
-scripts/bundle.sh
-Resources/Info.plist, chime.aiff
+Sources/PomodoroCore/        // pure, unit-tested
+  TimerEngine.swift          // state machine
+  Settings.swift             // durations, presets, toggles
+Sources/PomodoroBar/         // the app
+  PomodoroBarApp.swift       // @main, MenuBarExtra
+  TimerController.swift      // clock, persistence, notifications, hotkey
+  Notifier.swift, GlobalHotKey.swift, Views.swift
+Tests/PomodoroCoreTests/
+scripts/bundle.sh            // builds the .app (Info.plist generated, system "Glass" chime)
 ```
 
 ## Milestones
